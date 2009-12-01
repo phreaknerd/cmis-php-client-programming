@@ -1,4 +1,4 @@
-<?
+<?php
 //  Author: Rich McKnight rich.mcknight@alfresco.com http://oldschooltechie.com
 require_once('cmis_repository_wrapper.php');
 $repo_url = $_SERVER["argv"][1];
