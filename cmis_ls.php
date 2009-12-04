@@ -21,20 +21,9 @@ if ($repo_debug) {
 	print_r($myfolder);
 	print "\n===========================================\n\n";
 }
-// We only had one object in the feed so get its "down" link -- the one to get all of its children
-$children_url = $myfolder->links['down'];
-if ($repo_debug) {
-	print "Folder Get Children URL=" . $children_url . "\n";
-}
 
-// Get all of the child objects
-$ret=$client->doGet($children_url);
-$objs=$client->extractObjectFeed($ret->body);
+$objs=$client->getChildren($myfolder->id);
 if ($repo_debug) {
-	if ($repo_debug > 1) {
-		print "Folder Children XML and HTTP STATUS:\n===========================================\n";
-		print_r($ret);
-	}
 	print "Folder Children Objects\n:\n===========================================\n";
 	print_r($objs);
 	print "\n===========================================\n\n";

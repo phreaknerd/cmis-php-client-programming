@@ -243,10 +243,26 @@ define("LINK_ALLOWABLE_ACTIONS","http://docs.oasis-open.org/ns/cmis/link/200908/
 // Many Links have a pattern to them based upon objectId -- but can that be depended upon?
 
 class CMISService extends CMISRepositoryWrapper {
+	var $_link_cache;
 	function __construct($url,$username,$password) {
 		parent::__construct($url,$username,$password);
+		$this->_link_cache=array();
 	}
-	//Options
+	
+	//Utility Methods
+	function cacheObjectLinks($objs) {
+		foreach ($objs->objectList as $obj) {
+			$this->_link_cache[$obj->id]=$obj->links;
+		}
+	}
+	
+	function getLink($objectId,$linkName) {
+		if ($this->_link_cache[$objectId][$linkName]) {
+			return $this->_link_cache[$objectId][$linkName];
+		}
+		$obj=$this->getObject($objectId);
+		return $obj->link[$linkName];
+	}
 	
 	// Repository Services
 	function getRepositories() {
@@ -278,8 +294,13 @@ class CMISService extends CMISRepositoryWrapper {
 		throw Exception("Not Implemented");
 	}
 
-	function getChildren() {
-		throw Exception("Not Implemented");
+	function getChildren($objectId,$options=array()) {
+		$myURL = $this->getLink($objectId,"down");
+		//TODO: Need GenURLQueryString Utility
+		$ret=$this->doGet($myURL);
+		$objs=$this->extractObjectFeed($ret->body);
+		$this->cacheObjectLinks($objs);
+		return $objs;
 	}
 
 	function getFolderParent() {
@@ -310,6 +331,7 @@ class CMISService extends CMISRepositoryWrapper {
  		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
 		$ret = $this->doGet($obj_url);
 		$objs=$this->extractObjectFeed($ret->body);
+		$this->cacheObjectLinks($objs);
  		return $objs->objectList[0];
 	}
 
@@ -319,6 +341,7 @@ class CMISService extends CMISRepositoryWrapper {
  		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbypath'],$varmap);
 		$ret = $this->doGet($obj_url);
 		$objs=$this->extractObjectFeed($ret->body);
+		$this->cacheObjectLinks($objs);
  		return $objs->objectList[0];
 	}
 
