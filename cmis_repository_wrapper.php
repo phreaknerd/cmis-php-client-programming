@@ -140,6 +140,7 @@ class CMISRepositoryWrapper {
 		//  -- Links
 		//  -- Properties
 		//  -- the Object ID
+		// RRM -- NEED TO ADD ALLOWABLEACTIONS
 		$retval = new stdClass();
 		$retval->links=CMISRepositoryWrapper::getLinksArray($xmlnode);
         $retval->properties=array();
@@ -219,5 +220,235 @@ class CMISRepositoryWrapper {
 		}
 		
 		return $retval;
+	}
+}
+
+// Option Contants for Array Indexing
+// -- Generally optional flags that control how much information is returned
+// -- Change log token is an anomoly -- but included in URL as parameter
+define("OPT_MAX_ITEMS","maxItems");
+define("OPT_SKIP_COUNT","skipCount");
+define("OPT_FILTER","filter");
+define("OPT_INCLUDE_PROPERTY_DEFINITIONS","includePropertyDefinitions");
+define("OPT_INCLUDE_RELATIONSHIPS","includeRelationships");
+define("OPT_INCLUDE_POLICY_IDS","includePolicyIds");
+define("OPT_RENDITION_FILTER","renditionFilter");
+define("OPT_INCLUDE_ACL","includeACL");
+define("OPT_INCLUDE_ALLOWABLE_ACTIONS","includeAllowableActions");
+define("OPT_DEPTH","depth");
+define("OPT_CHANGE_LOG_TOKEN","changeLogToken");
+
+define("LINK_ALLOWABLE_ACTIONS","http://docs.oasis-open.org/ns/cmis/link/200908/allowableactions");
+
+// Many Links have a pattern to them based upon objectId -- but can that be depended upon?
+
+class CMISService extends CMISRepositoryWrapper {
+	function __construct($url,$username,$password) {
+		parent::__construct($url,$username,$password);
+	}
+	//Options
+	
+	// Repository Services
+	function getRepositories() {
+		throw Exception("Not Implemented");
+	}
+	
+	function getRepositoryInfo() {
+		return $this->workspace;
+	}
+	
+	function getTypeChildren() {
+		throw Exception("Not Implemented");
+	}
+
+	function getTypeDescendants() {
+		throw Exception("Not Implemented");
+	}
+
+	function getTypeDefinition() {
+		throw Exception("Not Implemented");
+	}
+
+	//Navigation Services
+	function getFolderTree() {
+		throw Exception("Not Implemented");
+	}
+
+	function getDescendants() {
+		throw Exception("Not Implemented");
+	}
+
+	function getChildren() {
+		throw Exception("Not Implemented");
+	}
+
+	function getFolderParent() {
+		throw Exception("Not Implemented");
+	}
+
+	function getObjectParents() {
+		throw Exception("Not Implemented");
+	}
+
+	function getCheckedOutDocs() {
+		throw Exception("Not Implemented");
+	}
+
+	//Discovery Services
+	function query() {
+		throw Exception("Not Implemented");
+	}
+
+	function getContentChanges() {
+		throw Exception("Not Implemented");
+	}
+
+	//Object Services
+	function getObject($objectId,$options=array()) {
+		$varmap=$options;
+		$varmap["id"]=$objectId;
+ 		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
+		$ret = $this->doGet($obj_url);
+		$objs=$this->extractObjectFeed($ret->body);
+ 		return $objs->objectList[0];
+	}
+
+	function getObjectByPath($path,$options=array()) {
+		$varmap=$options;
+		$varmap["path"]=$path;
+ 		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbypath'],$varmap);
+		$ret = $this->doGet($obj_url);
+		$objs=$this->extractObjectFeed($ret->body);
+ 		return $objs->objectList[0];
+	}
+
+	function getProperties($objectId,$options=array()) {
+		// May need to set the options array default -- 
+		return getObject($objectId,$options);
+	}
+
+	function getAllowableActions($objectId,$options=array()) {
+		// get stripped down version of object (for the links) and then get the allowable actions?
+		// Low priority -- can get all information when getting object
+		throw Exception("Not Implemented");
+	}
+
+	function getRenditions($objectId,$options=array(OPT_RENDITION_FILTER => "*")) {
+		return getObject($objectId,$options);
+	}
+
+	function getContentStream() {
+		throw Exception("Not Implemented");
+	}
+
+	function createDocument() {
+		throw Exception("Not Implemented");
+	}
+
+	function createDocumentFromSource() {
+		throw Exception("Not Implemented in This Binding");
+	}
+
+	function createFolder() {
+		throw Exception("Not Implemented");
+	}
+
+	function createRelationship() {
+		throw Exception("Not Implemented");
+	}
+
+	function createPolicy() {
+		throw Exception("Not Implemented");
+	}
+
+	function updateProperties() {
+		throw Exception("Not Implemented");
+	}
+
+	function moveObject() {
+		throw Exception("Not Implemented");
+	}
+
+	function deleteObject() {
+		throw Exception("Not Implemented");
+	}
+
+	function deleteTree() {
+		throw Exception("Not Implemented");
+	}
+
+	function setContentStream() {
+		throw Exception("Not Implemented");
+	}
+
+	function deleteContentStream() {
+		throw Exception("Not Implemented");
+	}
+
+	//Versioning Services
+	function getPropertiesOfLatestVersion() {
+		throw Exception("Not Implemented");
+	}
+
+	function getObjectOfLatestVersion() {
+		throw Exception("Not Implemented");
+	}
+
+	function getAllVersions() {
+		throw Exception("Not Implemented");
+	}
+
+	function checkOut() {
+		throw Exception("Not Implemented");
+	}
+
+	function checkIn() {
+		throw Exception("Not Implemented");
+	}
+
+	function cancelCheckOut() {
+		throw Exception("Not Implemented");
+	}
+
+	function deleteAllVersions() {
+		throw Exception("Not Implemented");
+	}
+
+	//Relationship Services
+	function getObjectRelationships() {
+		// get stripped down version of object (for the links) and then get the relationships?
+		// Low priority -- can get all information when getting object
+		throw Exception("Not Implemented");
+	}
+
+	//Multi-Filing Services
+	function addObjectToFolder() {
+		throw Exception("Not Implemented");
+	}
+
+	function removeObjectFromFolder() {
+		throw Exception("Not Implemented");
+	}
+
+	//Policy Services
+	function getAppliedPolicies() {
+		throw Exception("Not Implemented");
+	}
+
+	function applyPolicy() {
+		throw Exception("Not Implemented");
+	}
+
+	function removePolicy() {
+		throw Exception("Not Implemented");
+	}
+
+	//ACL Services
+	function getACL() {
+		throw Exception("Not Implemented");
+	}
+
+	function applyACL() {
+		throw Exception("Not Implemented");
 	}
 }

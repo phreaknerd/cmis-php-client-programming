@@ -7,7 +7,7 @@ $repo_password = $_SERVER["argv"][3];
 $repo_folder = $_SERVER["argv"][4];
 $repo_debug = $_SERVER["argv"][5];
    
-$client=new CMISRepositoryWrapper($repo_url,$repo_username,$repo_password);
+$client=new CMISService($repo_url,$repo_username,$repo_password);
 
 if ($repo_debug) {
 	print "Repository Information:\n===========================================\n";
@@ -15,28 +15,14 @@ if ($repo_debug) {
 	print "\n===========================================\n\n";
 }
 
-// Get folder using object by path
-$folder_url =  $client->processTemplate($client->workspace->uritemplates['objectbypath'],array("path" => $repo_folder));
+$myfolder=$client->getObjectByPath($repo_folder);
 if ($repo_debug) {
-	print "Folder By Object Path URL=" . $folder_url . "\n";
-}
-
-// Get the folder object (the one that whose contents you want to list) and find its URL
-// for listing the contents
-$ret = $client->doGet($folder_url);
-$objs=$client->extractObjectFeed($ret->body);
-if ($repo_debug) {
-	if ($repo_debug > 1) {
-		print "Folder XML and HTTP STATUS:\n===========================================\n";
-		print_r($ret);
-	}
 	print "Folder Object:\n===========================================\n";
-	print_r($objs);
+	print_r($myfolder);
 	print "\n===========================================\n\n";
 }
-
 // We only had one object in the feed so get its "down" link -- the one to get all of its children
-$children_url = $objs->objectList[0]->links['down'];
+$children_url = $myfolder->links['down'];
 if ($repo_debug) {
 	print "Folder Get Children URL=" . $children_url . "\n";
 }
