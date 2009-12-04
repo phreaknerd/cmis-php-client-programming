@@ -39,3 +39,7 @@ foreach ($objs->objectList as $obj) {
 	}
 }
 
+if ($repo_debug > 2) {
+	print "Final State of CLient:\n===========================================\n";
+	print_r($client);
+}
