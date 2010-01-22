@@ -73,6 +73,10 @@ class CMISRepositoryWrapper {
 		if ($content) {
 			curl_setopt($session,CURLOPT_POSTFIELDS, $content);
 		}
+		if ($method == "POST") {
+			  curl_setopt($session, CURLOPT_HTTPHEADER, array("Content-Type: " . $contentType));			
+			  curl_setopt($session,CURLOPT_POST,true);
+		}
 		$retval = new stdClass();
 		$retval->body=curl_exec($session);
 		$retval->code = curl_getinfo($session,CURLINFO_HTTP_CODE);
@@ -240,6 +244,13 @@ define("OPT_CHANGE_LOG_TOKEN","changeLogToken");
 
 define("LINK_ALLOWABLE_ACTIONS","http://docs.oasis-open.org/ns/cmis/link/200908/allowableactions");
 
+define("MIME_ATOM_XML",'application/atom+xml');
+define("MIME_ATOM_XML_ENTRY",'application/atom+xml;type=entry');
+define("MIME_ATOM_XML_FEED",'application/atom+xml;type=feed');
+define("MIME_CMIS_TREE",'application/cmistree+xml');
+define("MIME_CMIS_QUERY",'application/cmisquery+xml');
+
+
 // Many Links have a pattern to them based upon objectId -- but can that be depended upon?
 
 class CMISService extends CMISRepositoryWrapper {
@@ -282,9 +293,15 @@ class CMISService extends CMISRepositoryWrapper {
 	}
 
 	function getTypeDefinition() {
+		//$myURL = $this->getLink($objectId,"describedby");
 		throw Exception("Not Implemented");
 	}
 
+	function getObjectTypeDefinition($objectId) {
+		$myURL = $this->getLink($objectId,"describedby");
+		$ret=$this->doGet($myURL);
+		return $ret;
+	}
 	//Navigation Services
 	function getFolderTree() {
 		throw Exception("Not Implemented");
@@ -316,8 +333,40 @@ class CMISService extends CMISRepositoryWrapper {
 	}
 
 	//Discovery Services
-	function query() {
-		throw Exception("Not Implemented");
+	
+	static function getQueryTemplate() {
+		ob_start();
+		echo '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n";
+?>
+<cmis:query xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/"
+xmlns:cmism="http://docs.oasis-open.org/ns/cmis/messaging/200908/"
+xmlns:atom="http://www.w3.org/2005/Atom"
+xmlns:app="http://www.w3.org/2007/app"
+xmlns:cmisra="http://docs.oasisopen.org/ns/cmis/restatom/200908/">
+<cmis:statement>{q}</cmis:statement>
+<cmis:searchAllVersions>{searchAllVersions}</cmis:searchAllVersions>
+<cmis:includeAllowableActions>{includeAllowableActions}</cmis:includeAllowableActions>
+<cmis:includeRelationships>{includeRelationships}</cmis:includeRelationships>
+<cmis:renditionFilter>{renditionFilter}</cmis:renditionFilter>
+<cmis:maxItems>{maxItems}</cmis:maxItems>
+<cmis:skipCount>{skipCount}</cmis:skipCount>
+</cmis:query>
+<?
+		return ob_get_clean();		
+	}
+	function query($q,$options=array()) {
+		static $query_template;
+		if (!isset($query_template)) {
+			$query_template = CMISService::getQueryTemplate();
+		}
+		$hash_values=$options;
+		$hash_values['q'] = $q;
+		$post_value = CMISRepositoryWrapper::processTemplate($query_template,$hash_values);
+	    echo "URL: " . $this->workspace->collections['query'];
+		echo "POST_VALUE: $post_value";
+		$objs = $this->doPost($this->workspace->collections['query'],$post_value,MIME_CMIS_QUERY);
+		$this->cacheObjectLinks($objs);
+ 		return $objs;
 	}
 
 	function getContentChanges() {
@@ -325,6 +374,52 @@ class CMISService extends CMISRepositoryWrapper {
 	}
 
 	//Object Services
+	static function getEntryTemplate() {
+		ob_start();
+		echo '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n";
+?>
+<atom:entry xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/"
+xmlns:cmism="http://docs.oasis-open.org/ns/cmis/messaging/200908/"
+xmlns:atom="http://www.w3.org/2005/Atom"
+xmlns:app="http://www.w3.org/2007/app"
+xmlns:cmisra="http://docs.oasisopen.org/ns/cmis/restatom/200908/">
+<atom:title>{title}</atom:title>
+{SUMMARY}
+{CONTENT}
+<cmisra:object><cmis:properties>{PROPERTIES}</cmis:properties></cmisra:object>
+</atom:entry>
+<?
+		return ob_get_clean();		
+	}
+	
+	static function getPropertyTemplate() {
+		ob_start();
+?>
+		<cmis:property{propertyType} propertyDefinitionID="{propertyId}">
+			<cmis:value>{properties}</cmis:value>
+		</cmis:property{propertyType}>
+<?
+		return ob_get_clean();		
+	}
+
+	static function getSummaryTemplate() {
+		ob_start();
+?>
+		<atom:summary>{summary}</atom:summary>
+<?
+		return ob_get_clean();		
+	}
+
+	static function getContentTemplate() {
+		ob_start();
+?>
+		<cmisra:content>{content}</cmisra:content>
+<?
+		return ob_get_clean();		
+	}
+	static function createAtomEntry($name,$properties) {
+		
+	}
 	function getObject($objectId,$options=array()) {
 		$varmap=$options;
 		$varmap["id"]=$objectId;
@@ -364,7 +459,8 @@ class CMISService extends CMISRepositoryWrapper {
 		throw Exception("Not Implemented");
 	}
 
-	function createDocument() {
+	function createDocument($folderId,$properties,$content=null,$options=array()) {
+		$myURL = $this->getLink($folderId,"down");
 		throw Exception("Not Implemented");
 	}
 
@@ -373,6 +469,7 @@ class CMISService extends CMISRepositoryWrapper {
 	}
 
 	function createFolder() {
+		$myURL = $this->getLink($folderId,"down");
 		throw Exception("Not Implemented");
 	}
 
