@@ -449,6 +449,18 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		}
 		return $propertyContent;
 	}
+	
+	static function getContentEntry($content,$content_type="application/octet-stream") {
+		static $contentTemplate;
+		if (!isset($contentTemplate)) {
+			$contentTemplate = CMISService::getContentTemplate();
+		}
+		if ($content) {
+			return CMISRepositoryWrapper::processTemplate($contentTemplate,array("content" => base64_encode($content),"content_type" => $content_type));
+		} else {
+			return "";
+		}
+	}
 
 	static function getSummaryTemplate() {
 		ob_start();
@@ -461,7 +473,14 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 	static function getContentTemplate() {
 		ob_start();
 ?>
-		<cmisra:content>{content}</cmisra:content>
+		<cmisra:content>
+			<cmisra:mediatype>
+				{content_type}
+			</cmisra:mediatype>
+			<cmisra:base64>
+				{content}
+			</cmisra:base64>
+		</cmisra:content>
 <?
 		return ob_get_clean();		
 	}
@@ -507,20 +526,19 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		throw Exception("Not Implemented");
 	}
 
-	function createDocument($folderId,$fileName,$properties=array(),$content=null,$options=array()) { // Yes
+	function postObject($folderId,$objectName,$objectType,$properties=array(),$content=null,$content_type="application/octet-stream",$options=array()) { // Yes
 		$myURL = $this->getLink($folderId,"down");
 		static $entry_template;
 		if (!isset($entry_template)) {
 			$entry_template = CMISService::getEntryTemplate();
 		}
-		//$hash_values=$options;
 		if (is_array($properties)) {
 			$hash_values=$properties;
 		} else {
 			$hash_values=array();
 		}
 		if (!isset($hash_values["cmis:objectTypeId"])) {
-			$hash_values["cmis:objectTypeId"]=array("propertyType" => "Id","value" => "cmis:folder");
+			$hash_values["cmis:objectTypeId"]=array("propertyType" => "Id","value" => $objectType);
 		}
 		$properties_xml = CMISService::processPropertyTemplates($hash_values);
 		if (is_array($options)) {
@@ -529,14 +547,25 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 			$hash_values=array();
 		}
 		$hash_values["PROPERTIES"]=$properties_xml;
+		$hash_values["SUMMARY"]=CMISService::getSummaryTemplate();
+		if ($content) {
+			$hash_values["CONTENT"]=CMISService::getContentEntry($content,$content_type);
+		}
 		if (!isset($hash_values['title'])) {
-			$hash_values['title'] = $fileName;
+			$hash_values['title'] = $objectName;
+		}
+		if (!isset($hash_values['summary'])) {
+			$hash_values['summary'] = $objectName;
 		}
 		$post_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
 		echo "POST_VALUE: $post_value";
 		$objs = $this->doPost($myURL,$post_value,MIME_ATOM_XML_ENTRY);
 		$this->cacheObjectLinks($objs);
  		return $objs;
+	}
+
+	function createDocument($folderId,$fileName,$properties=array(),$content=null,$content_type="application/octet-stream",$options=array()) { // Yes
+		return $this->postObject($folderId,$fileName,"cmis:document",$properties,$content,$content_type,$options);
 	}
 
 	function createDocumentFromSource() { //Yes?
@@ -544,37 +573,8 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 	}
 
 	function createFolder($folderId,$folderName,$properties=array(),$options=array()) { // Yes
-		$myURL = $this->getLink($folderId,"down");
-		static $entry_template;
-		if (!isset($entry_template)) {
-			$entry_template = CMISService::getEntryTemplate();
-		}
-		//$hash_values=$options;
-		if (is_array($properties)) {
-			$hash_values=$properties;
-		} else {
-			$hash_values=array();
-		}
-		if (!isset($hash_values["cmis:objectTypeId"])) {
-			$hash_values["cmis:objectTypeId"]=array("propertyType" => "Id","value" => "cmis:folder");
-		}
-		$properties_xml = CMISService::processPropertyTemplates($hash_values);
-		if (is_array($options)) {
-			$hash_values=$options;
-		} else {
-			$hash_values=array();
-		}
-		$hash_values["PROPERTIES"]=$properties_xml;
-		if (!isset($hash_values['title'])) {
-			$hash_values['title'] = $folderName;
-		}
-		$post_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
-		echo "POST_VALUE: $post_value";
-		$objs = $this->doPost($myURL,$post_value,MIME_ATOM_XML_ENTRY);
-		$this->cacheObjectLinks($objs);
- 		return $objs;
+		return $this->postObject($folderId,$folderName,"cmis:folder",$properties,null,null,$options);
 	}
-
 	function createRelationship() {
 		throw Exception("Not Implemented");
 	}
