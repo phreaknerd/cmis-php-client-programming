@@ -269,6 +269,17 @@ class CMISService extends CMISRepositoryWrapper {
 			$this->_title_cache[$obj-id]=$obj->properties["cmis:name"]; // Broad Assumption Here?
 		}
 	}
+	
+	function cacheEntryInfo($obj) {
+			$this->_link_cache[$obj->id]=$obj->links;
+			$this->_title_cache[$obj-id]=$obj->properties["cmis:name"]; // Broad Assumption Here?
+	}
+	
+	function cacheFeedInfo ($objs) {
+		foreach ($objs->objectList as $obj) {
+			cacheEntryInfo($obj);
+		}
+	}
 
 	function getTitle($objectId) {
 		if ($this->_title_cache[$objectId]) {
@@ -326,7 +337,7 @@ class CMISService extends CMISRepositoryWrapper {
 		//TODO: Need GenURLQueryString Utility
 		$ret=$this->doGet($myURL);
 		$objs=$this->extractObjectFeed($ret->body);
-		$this->cacheObjectLinks($objs);
+		$this->cacheFeedInfo($objs);
 		return $objs;
 	}
 
@@ -375,7 +386,7 @@ xmlns:cmisra="http://docs.oasisopen.org/ns/cmis/restatom/200908/">
 	    echo "URL: " . $this->workspace->collections['query'];
 		echo "POST_VALUE: $post_value";
 		$objs = $this->doPost($this->workspace->collections['query'],$post_value,MIME_CMIS_QUERY);
-		$this->cacheObjectLinks($objs);
+		$this->cacheFeedInfo($objs);
  		return $objs;
 	}
 
@@ -487,8 +498,8 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
  		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
 		$ret = $this->doGet($obj_url);
 		$obj=$this->extractObject($ret->body);
-		$this->cacheObjectLinks($objs);
- 		return $objs->objectList[0];
+		$this->cacheEntryInfo($obj);
+ 		return $obj;
 	}
 
 	function getObjectByPath($path,$options=array()) {
@@ -496,9 +507,9 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$varmap["path"]=$path;
  		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbypath'],$varmap);
 		$ret = $this->doGet($obj_url);
-		$objs=$this->extractObjectFeed($ret->body);
-		$this->cacheObjectLinks($objs);
- 		return $objs->objectList[0];
+		$obj=$this->extractObject($ret->body);
+		$this->cacheEntryInfo($obj);
+ 		return $obj;
 	}
 
 	function getProperties($objectId,$options=array()) {
@@ -553,9 +564,10 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		}
 		$post_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
 		echo "POST_VALUE: $post_value";
-		$objs = $this->doPost($myURL,$post_value,MIME_ATOM_XML_ENTRY);
-		$this->cacheObjectLinks($objs);
- 		return $objs;
+		$ret = $this->doPost($myURL,$post_value,MIME_ATOM_XML_ENTRY);
+		$obj=$this->extractObject($ret->body);
+		$this->cacheEntryInfo($obj);
+  		return $obj;
 	}
 
 	function createDocument($folderId,$fileName,$properties=array(),$content=null,$content_type="application/octet-stream",$options=array()) { // Yes
@@ -608,9 +620,10 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		}
 		$put_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
 		echo "PUT_VALUE: $put_value";
-		$objs= $this->doPut($obj_url,$put_value,MIME_ATOM_XML_ENTRY);
-		$this->cacheObjectLinks($objs);
- 		return $objs;
+		$ret= $this->doPut($obj_url,$put_value,MIME_ATOM_XML_ENTRY);
+		$obj=$this->extractObject($ret->body);
+		$this->cacheEntryInfo($obj);
+  		return $obj;
 	}
 
 	function moveObject() { //yes
