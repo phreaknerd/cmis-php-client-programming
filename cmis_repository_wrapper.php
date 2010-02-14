@@ -258,15 +258,25 @@ class CMISService extends CMISRepositoryWrapper {
 	function __construct($url,$username,$password) {
 		parent::__construct($url,$username,$password);
 		$this->_link_cache=array();
+		$this->_title_cache=array();
 	}
 	
-	//Utility Methods
+	// Utility Methods -- Added Titles
+	// Should refactor to allow for single object
 	function cacheObjectLinks($objs) {
 		foreach ($objs->objectList as $obj) {
 			$this->_link_cache[$obj->id]=$obj->links;
+			$this->_title_cache[$obj-id]=$obj->properties["cmis:name"]; // Broad Assumption Here?
 		}
 	}
-	
+
+	function getTitle($objectId) {
+		if ($this->_title_cache[$objectId]) {
+			return $this->_title_cache[$objectId];
+		}
+		$obj=$this->getObject($objectId);
+		return $obj->properties["cmis:name"];
+	}	
 	function getLink($objectId,$linkName) {
 		if ($this->_link_cache[$objectId][$linkName]) {
 			return $this->_link_cache[$objectId][$linkName];
@@ -372,23 +382,7 @@ xmlns:cmisra="http://docs.oasisopen.org/ns/cmis/restatom/200908/">
 	function getContentChanges() {
 		throw Exception("Not Implemented");
 	}
-/*
- * Example That Works
-<?xml version='1.0' encoding='utf-8'?>
-<entry xmlns="http://www.w3.org/2005/Atom"
- xmlns:app="http://www.w3.org/2007/app" 
- xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/"
- xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/"
- xmlns:alf="http://www.alfresco.org">
-<title>RICHARDS FOLDER IV9099-7870-0-0I</title>
-<summary>sales space</summary>
-<cmisra:object>
-<cmis:properties>
-<cmis:propertyId propertyDefinitionId="cmis:objectTypeId"><cmis:value>cmis:folder</cmis:value></cmis:propertyId>
-</cmis:properties>
-</cmisra:object>
-</entry>
- */
+
 	//Object Services
 	static function getEntryTemplate() {
 		ob_start();
@@ -492,7 +486,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$varmap["id"]=$objectId;
  		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
 		$ret = $this->doGet($obj_url);
-		$objs=$this->extractObjectFeed($ret->body);
+		$obj=$this->extractObject($ret->body);
 		$this->cacheObjectLinks($objs);
  		return $objs->objectList[0];
 	}
@@ -575,24 +569,60 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 	function createFolder($folderId,$folderName,$properties=array(),$options=array()) { // Yes
 		return $this->postObject($folderId,$folderName,"cmis:folder",$properties,null,null,$options);
 	}
-	function createRelationship() {
+	
+	function createRelationship() { // Not in first Release
 		throw Exception("Not Implemented");
 	}
 
-	function createPolicy() {
+	function createPolicy() { // Not in first Release
 		throw Exception("Not Implemented");
 	}
 
-	function updateProperties() { // Yes
-		throw Exception("Not Implemented");
+	function updateProperties($objectId,$properties=array(),$options=array()) { // Yes
+		$varmap=$options;
+		$varmap["id"]=$objectId;
+		$objectName=$this->getTitle($objectId);
+ 		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
+		static $entry_template;
+		if (!isset($entry_template)) {
+			$entry_template = CMISService::getEntryTemplate();
+		}
+		if (is_array($properties)) {
+			$hash_values=$properties;
+		} else {
+			$hash_values=array();
+		}
+		$properties_xml = CMISService::processPropertyTemplates($hash_values);
+		if (is_array($options)) {
+			$hash_values=$options;
+		} else {
+			$hash_values=array();
+		}
+		$hash_values["PROPERTIES"]=$properties_xml;
+		$hash_values["SUMMARY"]=CMISService::getSummaryTemplate();
+		if (!isset($hash_values['title'])) {
+			$hash_values['title'] = $objectName;
+		}
+		if (!isset($hash_values['summary'])) {
+			$hash_values['summary'] = $objectName;
+		}
+		$put_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
+		echo "PUT_VALUE: $put_value";
+		$objs= $this->doPut($obj_url,$put_value,MIME_ATOM_XML_ENTRY);
+		$this->cacheObjectLinks($objs);
+ 		return $objs;
 	}
 
 	function moveObject() { //yes
 		throw Exception("Not Implemented");
 	}
 
-	function deleteObject() { //Yes
-		throw Exception("Not Implemented");
+	function deleteObject($objectId,$options=array()) { //Yes
+		$varmap=$options;
+		$varmap["id"]=$objectId;
+ 		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
+		$ret = $this->doDelete($obj_url);
+		return;
 	}
 
 	function deleteTree() { // Nice to have
@@ -674,19 +704,3 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		throw Exception("Not Implemented");
 	}
 }
-
-/*
-<?xml version="1.0" encoding="UTF-8"?>
-<entry xmlns="http://www.w3.org/2005/Atom" xmlns:app="http://www.w3.org/2007/app" xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/" xmlns:cmis="http://docs.oasis-open.org/ns/cmis/core/200908/" xmlns:alf="http://www.alfresco.org">
-<author><name>Rich</name></author>
-<summary>Rich Space</summary>
-<title>RIch Space</title>
-<cmisra:object>
-<cmis:properties>
-<cmis:propertyId propertyDefinitionId="cmis:objectTypeId"><cmis:value>cmis:folder</cmis:value></cmis:propertyId>
-<cmis:propertyString propertyDefinitionId="cmis:name"><cmis:value>Rich Space Feb 9</cmis:value></cmis:propertyString>
-</cmis:properties>
-</cmisra:object>
-</entry>
-
-*/
