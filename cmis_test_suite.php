@@ -63,7 +63,7 @@ foreach ($objs->objectList as $obj) {
 	}
 }
 
-echo "DELETEING " . $obj_del->properties['cmis:name'];
+echo "DELETEING " . $obj_del->properties['cmis:name'] ."\n";
 $client->deleteObject($obj_del->id);
 
 $objs=$client->getChildren($my_new_folder->id);

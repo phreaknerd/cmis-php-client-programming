@@ -154,7 +154,8 @@ class CMISRepositoryWrapper {
 				$retval->properties[$pn->attributes->getNamedItem("propertyDefinitionId")->nodeValue] = $pn->getElementsByTagName("value")->item(0)->nodeValue;
 			}
 		}
-        $retval->id=$xmlnode->getElementsByTagName("id")->item(0)->nodeValue;
+        $retval->uuid=$xmlnode->getElementsByTagName("id")->item(0)->nodeValue;
+        $retval->id=$retval->properties["cmis:objectId"];
         return $retval;
  	}
 
@@ -277,7 +278,7 @@ class CMISService extends CMISRepositoryWrapper {
 	
 	function cacheFeedInfo ($objs) {
 		foreach ($objs->objectList as $obj) {
-			cacheEntryInfo($obj);
+			$this->cacheEntryInfo($obj);
 		}
 	}
 
@@ -594,7 +595,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$varmap=$options;
 		$varmap["id"]=$objectId;
 		$objectName=$this->getTitle($objectId);
- 		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
+ 		$obj_url = $this->getLink($objectId,"edit");		
 		static $entry_template;
 		if (!isset($entry_template)) {
 			$entry_template = CMISService::getEntryTemplate();
@@ -633,8 +634,10 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 	function deleteObject($objectId,$options=array()) { //Yes
 		$varmap=$options;
 		$varmap["id"]=$objectId;
- 		$obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'],$varmap);
+ 		$obj_url = $this->getLink($objectId,"edit");		
 		$ret = $this->doDelete($obj_url);
+		print "DELETING " . $obj_url .  " RET VALUE\n";
+		print_r($ret);
 		return;
 	}
 
