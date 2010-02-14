@@ -23,6 +23,15 @@ if ($repo_debug) {
 	print "\n===========================================\n\n";
 }
 
+
+$myfolderType=$client->getObjectTypeDefinition($myfolder->id);
+if ($repo_debug) {
+	print "Folder Type Def:\n===========================================\n";
+	print_r($myfolderType);
+	print "\n===========================================\n\n";
+}
+
+
 $my_new_folder=$client->createFolder($myfolder->id,$repo_new_folder);
 if ($repo_debug) {
 	print "Return From Create Folder\n:\n===========================================\n";

@@ -159,6 +159,56 @@ class CMISRepositoryWrapper {
         return $retval;
  	}
 
+	static function extractTypeDef($xmldata) {
+		$doc=new DOMDocument();
+		$doc->loadXML($xmldata);
+		return CMISRepositoryWrapper::extractTypeDefFromNode($doc);		
+		
+	}
+	static function extractTypeDefFromNode($xmlnode) {
+		// Extracts the contents of an Object and organizes them into:
+		//  -- Links
+		//  -- Properties
+		//  -- the Object ID
+		// RRM -- NEED TO ADD ALLOWABLEACTIONS
+		$retval = new stdClass();
+		$retval->links=CMISRepositoryWrapper::getLinksArray($xmlnode);
+        $retval->properties=array();
+        $retval->attributes=array();
+		$result = CMISRepositoryWrapper::doXQueryFromNode($xmlnode,"//cmisra:type/*");
+		foreach ($result as $node) {
+			if ((substr($node->nodeName,0,13) == "cmis:property")  && (substr($node->nodeName,-10) == "Definition")){
+				$id=$node->getElementsByTagName("id")->item(0)->nodeValue;
+				$cardinality=$node->getElementsByTagName("cardinality")->item(0)->nodeValue;
+				$propertyType=$node->getElementsByTagName("propertyType")->item(0)->nodeValue;
+				// Stop Gap for now
+		    	$retval->properties[$id]= array(
+						"cmis:propertyType" =>$propertyType,
+						"cmis:cardinality" =>$cardinality,
+				);
+			} else {
+		    	$retval->attributes[$node->nodeName]= $node->nodeValue;
+			}
+			$retval->id=$retval->attributes["cmis:id"];
+		}
+
+/*
+ * 
+
+
+
+		$prop_nodes = $xmlnode->getElementsByTagName("object")->item(0)->getElementsByTagName("properties")->item(0)->childNodes;
+		foreach ($prop_nodes as $pn) {
+			if ($pn->attributes) {
+				$retval->properties[$pn->attributes->getNamedItem("propertyDefinitionId")->nodeValue] = $pn->getElementsByTagName("value")->item(0)->nodeValue;
+			}
+		}
+        $retval->uuid=$xmlnode->getElementsByTagName("id")->item(0)->nodeValue;
+        $retval->id=$retval->properties["cmis:objectId"];
+ */
+        return $retval;
+ 	}
+
 	static function extractObjectFeed($xmldata) {
 		//Assumes only one workspace for now
 		$doc=new DOMDocument();
@@ -260,26 +310,42 @@ class CMISService extends CMISRepositoryWrapper {
 		parent::__construct($url,$username,$password);
 		$this->_link_cache=array();
 		$this->_title_cache=array();
+		$this->_objTypeId_cache=array();
+		$this->_type_cache=array();
 	}
 	
 	// Utility Methods -- Added Titles
-	// Should refactor to allow for single object
-	function cacheObjectLinks($objs) {
-		foreach ($objs->objectList as $obj) {
-			$this->_link_cache[$obj->id]=$obj->links;
-			$this->_title_cache[$obj-id]=$obj->properties["cmis:name"]; // Broad Assumption Here?
-		}
-	}
-	
+	// Should refactor to allow for single object	
 	function cacheEntryInfo($obj) {
 			$this->_link_cache[$obj->id]=$obj->links;
-			$this->_title_cache[$obj-id]=$obj->properties["cmis:name"]; // Broad Assumption Here?
+			$this->_title_cache[$obj->id]=$obj->properties["cmis:name"]; // Broad Assumption Here?
+			$this->_objTypeId_cache[$obj->id]=$obj->properties["cmis:objectTypeId"];
 	}
 	
 	function cacheFeedInfo ($objs) {
 		foreach ($objs->objectList as $obj) {
 			$this->cacheEntryInfo($obj);
 		}
+	}
+	
+	function cacheTypeInfo ($tDef) {
+		  $this->_type_cache[$tDef->id] = $tDef;
+	}
+	
+	function getPropertyType($typeId,$propertyId) {
+		if ($this->_type_cache[$typeId]) {
+			return $this->_type_cache[$typeId]->properties[$propertyId];
+		}
+		$obj=$this->getTypeDefinition($typeId);
+		return $obj->properties[$propertyId];
+	}
+
+	function getObjectType($objectId) {
+		if ($this->_objTypeId_cache[$objectId]) {
+			return $this->_objTypeId_cache[$objectId];
+		}
+		$obj=$this->getObject($objectId);
+		return $obj->properties["cmis:objectTypeId"];
 	}
 
 	function getTitle($objectId) {
@@ -314,15 +380,23 @@ class CMISService extends CMISRepositoryWrapper {
 		throw Exception("Not Implemented");
 	}
 
-	function getTypeDefinition() { // Nice to have
-		//$myURL = $this->getLink($objectId,"describedby");
-		throw Exception("Not Implemented");
+	function getTypeDefinition($typeId,$options=array()) { // Nice to have
+		$varmap=$options;
+		$varmap["id"]=$typeId;
+		$myURL = $this->processTemplate($this->workspace->uritemplates['typebyid'],$varmap);
+		$ret=$this->doGet($myURL);
+		$obj=$this->extractTypeDef($ret->body);
+		$this->cacheTypeInfo($obj);
+		return $obj;
 	}
 
 	function getObjectTypeDefinition($objectId) { // Nice to have
 		$myURL = $this->getLink($objectId,"describedby");
 		$ret=$this->doGet($myURL);
-		return $ret;
+		// print_r($ret);
+		$obj=$this->extractTypeDef($ret->body);
+		$this->cacheTypeInfo($obj);
+		return $obj;
 	}
 	//Navigation Services
 	function getFolderTree() { // Would Be Useful
@@ -424,20 +498,34 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		return ob_get_clean();		
 	}
 	
-	static function processPropertyTemplates($propMap) {
+	static function processPropertyTemplates($objectType,$propMap) {
 		static $propTemplate;
+		static $propertyTypeMap;
 		if (!isset($propTemplate)) {
 			$propTemplate = CMISService::getPropertyTemplate();
 		}
+		if (!isset($propertyTypeMap)) { // Not sure if I need to do this like this
+			$propertyTypeMap = array (
+				"integer" => "Integer",
+				"boolean" => "Boolean",
+				"datetime" => "DateTime",
+				"decimal" => "Decimal",
+				"html" => "Html",
+				"id" => "Id",
+				"string" => "String",
+				"url" => "Url",
+				"xml" => "Xml",
+			);
+		}
 		$propertyContent="";
 		$hash_values=array();
-		foreach ($propMap as $propId => $propDef) {
-			$hash_values['propertyType']=$propDef['propertyType'];
+		foreach ($propMap as $propId => $propValue) {
+			$hash_values['propertyType']=getPropertyType($objectType,$propId);
 			$hash_values['propertyId']=$propId;
-			if (is_array($propDef['value'])) {
+			if (is_array($propValue)) {
 				$first_one=true;
 				$hash_values['properties']="";
-				foreach ($propDef['value'] as $val) {
+				foreach ($propValue as $val) {
 					//This is a bit of a hack
 					if ($first_one) {
 						$first_one=false;
@@ -447,7 +535,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 					$hash_values['properties'] .= $val;
 				}
 			} else {
-				$hash_values['properties']=$propDef['value'];
+				$hash_values['properties']=$propValue;
 			}
 			echo "HASH:\n";
 			print_r(array("template" =>$propTemplate, "Hash" => $hash_values));
@@ -544,9 +632,9 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 			$hash_values=array();
 		}
 		if (!isset($hash_values["cmis:objectTypeId"])) {
-			$hash_values["cmis:objectTypeId"]=array("propertyType" => "Id","value" => $objectType);
+			$hash_values["cmis:objectTypeId"]=$objectType;
 		}
-		$properties_xml = CMISService::processPropertyTemplates($hash_values);
+		$properties_xml = CMISService::processPropertyTemplates($objectType,$hash_values);
 		if (is_array($options)) {
 			$hash_values=$options;
 		} else {
@@ -595,6 +683,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$varmap=$options;
 		$varmap["id"]=$objectId;
 		$objectName=$this->getTitle($objectId);
+		$objectType=$this->getObjectType($objectId);
  		$obj_url = $this->getLink($objectId,"edit");		
 		static $entry_template;
 		if (!isset($entry_template)) {
@@ -605,7 +694,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		} else {
 			$hash_values=array();
 		}
-		$properties_xml = CMISService::processPropertyTemplates($hash_values);
+		$properties_xml = CMISService::processPropertyTemplates($objectType,$hash_values);
 		if (is_array($options)) {
 			$hash_values=$options;
 		} else {
