@@ -17,6 +17,7 @@ class CMISRepositoryWrapper {
 	var $password;
 	var $authenticated;
 	var $workspace;
+	var $last_request;
 	static $namespaces = array(
     	"cmis" => "http://docs.oasis-open.org/ns/cmis/core/200908/",
     	"cmisra" => "http://docs.oasis-open.org/ns/cmis/restatom/200908/",
@@ -77,11 +78,55 @@ class CMISRepositoryWrapper {
 			  curl_setopt($session, CURLOPT_HTTPHEADER, array("Content-Type: " . $contentType));			
 			  curl_setopt($session,CURLOPT_POST,true);
 		}
+		//TODO: Make this storage optional
 		$retval = new stdClass();
+		$retval->url=$url;
+		$retval->method=$method;
+		$retval->content_sent=$content;
+		$retval->content_type_sent=$contentType;
 		$retval->body=curl_exec($session);
 		$retval->code = curl_getinfo($session,CURLINFO_HTTP_CODE);
+		$retval->content_type=curl_getinfo($session,CURLINFO_CONTENT_TYPE);
+		$retval->content_length=curl_getinfo($session,CURLINFO_CONTENT_LENGTH_DOWNLOAD);
 		curl_close($session);
+		$this->last_request=$retval;
 		return $retval;
+	}
+	
+	function getLastRequest() {
+		return $this->last_request;
+	}
+
+	function getLastRequestBody() {
+		return $this->last_request->body;
+	}
+
+	function getLastRequestCode() {
+		return $this->last_request->code;
+	}
+
+	function getLastRequestContentType() {
+		return $this->last_request->content_type;
+	}
+
+	function getLastRequestContentLength() {
+		return $this->last_request->content_length;
+	}
+
+	function getLastRequestURL() {
+		return $this->last_request->url;
+	}
+
+	function getLastRequestMethod() {
+		return $this->last_request->method;
+	}
+
+	function getLastRequestContentTypeSent() {
+		return $this->last_request->content_type_sent;
+	}
+
+	function getLastRequestContentSent() {
+		return $this->last_request->content_sent;
 	}
 
 	// Static Utility Functions
@@ -334,10 +379,10 @@ class CMISService extends CMISRepositoryWrapper {
 	
 	function getPropertyType($typeId,$propertyId) {
 		if ($this->_type_cache[$typeId]) {
-			return $this->_type_cache[$typeId]->properties[$propertyId];
+			return $this->_type_cache[$typeId]->properties[$propertyId]["cmis:propertyType"];
 		}
 		$obj=$this->getTypeDefinition($typeId);
-		return $obj->properties[$propertyId];
+		return $obj->properties[$propertyId]["cmis:propertyType"];
 	}
 
 	function getObjectType($objectId) {
@@ -498,7 +543,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		return ob_get_clean();		
 	}
 	
-	static function processPropertyTemplates($objectType,$propMap) {
+	function processPropertyTemplates($objectType,$propMap) {
 		static $propTemplate;
 		static $propertyTypeMap;
 		if (!isset($propTemplate)) {
@@ -520,7 +565,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$propertyContent="";
 		$hash_values=array();
 		foreach ($propMap as $propId => $propValue) {
-			$hash_values['propertyType']=getPropertyType($objectType,$propId);
+			$hash_values['propertyType']=$propertyTypeMap[$this->getPropertyType($objectType,$propId)];
 			$hash_values['propertyId']=$propId;
 			if (is_array($propValue)) {
 				$first_one=true;
@@ -616,8 +661,11 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		return getObject($objectId,$options);
 	}
 
-	function getContentStream() { // Yes
-		throw Exception("Not Implemented");
+	function getContentStream($objectId,$options=array()) { // Yes
+		$myURL = $this->getLink($objectId,"edit-media");
+		$ret=$this->doGet($myURL);
+		// doRequest stores the last request information in this object
+		return $ret->body;
 	}
 
 	function postObject($folderId,$objectName,$objectType,$properties=array(),$content=null,$content_type="application/octet-stream",$options=array()) { // Yes
@@ -634,7 +682,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		if (!isset($hash_values["cmis:objectTypeId"])) {
 			$hash_values["cmis:objectTypeId"]=$objectType;
 		}
-		$properties_xml = CMISService::processPropertyTemplates($objectType,$hash_values);
+		$properties_xml = $this->processPropertyTemplates($objectType,$hash_values);
 		if (is_array($options)) {
 			$hash_values=$options;
 		} else {
@@ -694,7 +742,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		} else {
 			$hash_values=array();
 		}
-		$properties_xml = CMISService::processPropertyTemplates($objectType,$hash_values);
+		$properties_xml = $this->processPropertyTemplates($objectType,$hash_values);
 		if (is_array($options)) {
 			$hash_values=$options;
 		} else {
@@ -734,20 +782,23 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		throw Exception("Not Implemented");
 	}
 
-	function setContentStream() { //Yes
+	function setContentStream($objectId,$content,$content_type,$options=array()) { //Yes
+		$myURL = $this->getLink($objectId,"edit-media");
+		$ret=$this->doPut($myURL,$content,$content_type);
+	}
+
+	function deleteContentStream($objectId,$options=array()) { //yes
+		$myURL = $this->getLink($objectId,"edit-media");
+		$ret=$this->doDelete($myURL);
+		return;
+	}
+
+	//Versioning Services
+	function getPropertiesOfLatestVersion($objectId,$options=array()) {
 		throw Exception("Not Implemented");
 	}
 
-	function deleteContentStream() { //yes
-		throw Exception("Not Implemented");
-	}
-
-	//Versioning Services // Maybe
-	function getPropertiesOfLatestVersion() {
-		throw Exception("Not Implemented");
-	}
-
-	function getObjectOfLatestVersion() {
+	function getObjectOfLatestVersion($objectId,$options=array()) {
 		throw Exception("Not Implemented");
 	}
 
