@@ -25,14 +25,25 @@ class CMISRepositoryWrapper {
     	"app" => "http://www.w3.org/2007/app",
     );
 	
-	function __construct($url,$username,$password) {
-		$this->connect($url,$username,$password);
+	function __construct($url,$username=null,$password=null,$options=null) {
+		$this->connect($url,$username,$password,$options);
+	}
+	
+	static function getOpUrl($url,$options=null) {
+		if (is_array($options) && (count($options) > 0)) {
+			$needs_question=strstr($url,"?") === false;
+			return $url . ($needs_question?"?":"&") . http_build_query($options);
+		} else {
+			return $url;
+		}
 	}
 
-	function connect($url,$username,$password) {
+	function connect($url,$username,$password,$options) {
+		// TODO: Make this work with cookies
 		$this->url = $url;
 		$this->username = $username;
 		$this->password = $password;
+		$this->auth_options=$options;
 		$this->authenticated = false;
 		$retval=$this->doGet($this->url);
 		if ($retval->code == 200 || $retval->code == 201) {
@@ -61,10 +72,15 @@ class CMISRepositoryWrapper {
 		// Process the HTTP request
 		// 'til now only the GET request has been tested
 		// Does not URL encode any inputs yet
+		if (is_array($this->auth_options)) {
+			 $url=CMISRepositoryWrapper::getOpUrl($url,$this->auth_options);
+		}
 		$session = curl_init($url);
 		curl_setopt($session,CURLOPT_HEADER,false);
 		curl_setopt($session,CURLOPT_RETURNTRANSFER,true);
-		curl_setopt($session,CURLOPT_USERPWD,$this->username . ":" . $this->password);
+		if ($this->username) {
+			curl_setopt($session,CURLOPT_USERPWD,$this->username . ":" . $this->password);
+		}
 		curl_setopt($session,CURLOPT_CUSTOMREQUEST,$method);
 		if ($contentType) {
 			$headers=array();
@@ -351,8 +367,8 @@ define("MIME_CMIS_QUERY",'application/cmisquery+xml');
 
 class CMISService extends CMISRepositoryWrapper {
 	var $_link_cache;
-	function __construct($url,$username,$password) {
-		parent::__construct($url,$username,$password);
+	function __construct($url,$username,$password,$options=null) {
+		parent::__construct($url,$username,$password,$options);
 		$this->_link_cache=array();
 		$this->_title_cache=array();
 		$this->_objTypeId_cache=array();
@@ -683,9 +699,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$myURL = $this->getLink($folderId,"down");
 		// TODO: Need Proper Query String Handling
 		// Assumes that the 'down' link does not have a querystring in it
-		if ($options['sourceFolderId']) {
-			$myURL .= "?sourceFolderId=" . $options['sourceFolderId'];
-		}
+		$myURL = CMISRepositoryWrapper::getOpUrl($myURL,$options);
 		static $entry_template;
 		if (!isset($entry_template)) {
 			$entry_template = CMISService::getEntryTemplate();
@@ -717,6 +731,8 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		}
 		$post_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
 		$ret = $this->doPost($myURL,$post_value,MIME_ATOM_XML_ENTRY);
+		// print "DO_POST\n";
+		// print_r($ret);
 		$obj=$this->extractObject($ret->body);
 		$this->cacheEntryInfo($obj);
   		return $obj;
@@ -748,6 +764,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$objectName=$this->getTitle($objectId);
 		$objectType=$this->getObjectType($objectId);
  		$obj_url = $this->getLink($objectId,"edit");		
+		$obj_url = CMISRepositoryWrapper::getOpUrl($obj_url,$options);
 		static $entry_template;
 		if (!isset($entry_template)) {
 			$entry_template = CMISService::getEntryTemplate();

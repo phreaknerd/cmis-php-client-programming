@@ -8,7 +8,11 @@ $repo_folder = $_SERVER["argv"][4];
 $repo_new_folder=$_SERVER["argv"][5];
 $repo_debug = $_SERVER["argv"][6];
    
-$client=new CMISService($repo_url,$repo_username,$repo_password);
+if ($repo_username == "alf_ticket") {
+	$client=new CMISService($repo_url,null,null,array($repo_username => $repo_password));
+} else {
+	$client=new CMISService($repo_url,$repo_username,$repo_password);
+}
 
 if ($repo_debug) {
 	print "Repository Information:\n===========================================\n";
@@ -17,6 +21,7 @@ if ($repo_debug) {
 }
 
 $myfolder=$client->getObjectByPath($repo_folder);
+print_r($client->getLastRequest());
 if ($repo_debug) {
 	print "Folder Object:\n===========================================\n";
 	print_r($myfolder);
@@ -25,6 +30,7 @@ if ($repo_debug) {
 
 
 $myfolderType=$client->getObjectTypeDefinition($myfolder->id);
+print_r($client->getLastRequest());
 if ($repo_debug) {
 	print "Folder Type Def:\n===========================================\n";
 	print_r($myfolderType);
@@ -33,6 +39,7 @@ if ($repo_debug) {
 
 
 $my_new_folder=$client->createFolder($myfolder->id,$repo_new_folder);
+print_r($client->getLastRequest());
 if ($repo_debug) {
 	print "Return From Create Folder\n:\n===========================================\n";
 	print_r($my_new_folder);
@@ -40,6 +47,7 @@ if ($repo_debug) {
 }
 
 $obj_doc=$client->createDocument($my_new_folder->id,"TextFile.txt",array(),"THIS IS A NEW DOCUMENT","text/plain");
+print_r($client->getLastRequest());
 if ($repo_debug) {
         print "Return From Create Document\n:\n===========================================\n";
         print_r($obj_doc);
