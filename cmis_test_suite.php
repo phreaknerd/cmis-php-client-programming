@@ -39,10 +39,10 @@ if ($repo_debug) {
 	print "\n===========================================\n\n";
 }
 
-$obj=$client->createDocument($my_new_folder->id,"TextFile.txt",array(),"THIS IS A NEW DOCUMENT","text/plain");
+$obj_doc=$client->createDocument($my_new_folder->id,"TextFile.txt",array(),"THIS IS A NEW DOCUMENT","text/plain");
 if ($repo_debug) {
         print "Return From Create Document\n:\n===========================================\n";
-        print_r($obj);
+        print_r($obj_doc);
         print "\n===========================================\n\n";
 }
 
@@ -72,8 +72,16 @@ foreach ($objs->objectList as $obj) {
 	}
 }
 
+$delContent=$client->getContentStream($obj_del->id);
+echo "DEL CONTENT\n";
+print $delContent . "\n";
+
 echo "DELETEING " . $obj_del->properties['cmis:name'] ."\n";
 $client->deleteObject($obj_del->id);
+$sub_folder=$client->createFolder($my_new_folder->id,"SUB_FOLDER");
+$client->moveObject($obj_doc->id,$sub_folder->id,$my_new_folder->id);
+print "MOVE REQUEST\n=============================================\n";
+print_r($client->getLastRequest());
 
 $objs=$client->getChildren($my_new_folder->id);
 if ($repo_debug) {

@@ -780,7 +780,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 
 	function moveObject($objectId,$targetFolderId,$sourceFolderId,$options=array()) { //yes
 	    $options['sourceFolderId']=$sourceFolderId;
-		return $this->postObject($targetFolderId,$this->getTitle($objectId),$this->getObjectType($objectId),array(),null,null,$options);
+		return $this->postObject($targetFolderId,$this->getTitle($objectId),$this->getObjectType($objectId),array("cmis:objectId" => $objectId),null,null,$options);
 	}
 
 	function deleteObject($objectId,$options=array()) { //Yes
