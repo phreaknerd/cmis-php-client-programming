@@ -460,16 +460,30 @@ class CMISService extends CMISRepositoryWrapper {
 		return $objs;
 	}
 
-	function getFolderParent() { //yes
-		throw Exception("Not Implemented");
+	function getFolderParent($objectId,$options=array()) { //yes
+		$myURL = $this->getLink($objectId,"up");
+		//TODO: Need GenURLQueryString Utility
+		$ret=$this->doGet($myURL);
+		$obj=$this->extractObjectEntry($ret->body);
+		$this->cacheEntryInfo($obj);
+		return $obj;
 	}
 
-	function getObjectParents() { // yes
-		throw Exception("Not Implemented");
+	function getObjectParents($objectId,$options=array()) { // yes
+		$myURL = $this->getLink($objectId,"up");
+		//TODO: Need GenURLQueryString Utility
+		$ret=$this->doGet($myURL);
+		$objs=$this->extractObjectFeed($ret->body);
+		$this->cacheFeedInfo($objs);
+		return $objs;
 	}
 
-	function getCheckedOutDocs() {
-		throw Exception("Not Implemented");
+	function getCheckedOutDocs($options=array()) {
+ 		$obj_url = $this->workspace->collections['checkedout'];
+		$ret = $this->doGet($obj_url);
+		$objs=$this->extractObjectFeed($ret->body);
+		$this->cacheFeedInfo($objs);
+		return $objs;
 	}
 
 	//Discovery Services
@@ -667,6 +681,11 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 
 	function postObject($folderId,$objectName,$objectType,$properties=array(),$content=null,$content_type="application/octet-stream",$options=array()) { // Yes
 		$myURL = $this->getLink($folderId,"down");
+		// TODO: Need Proper Query String Handling
+		// Assumes that the 'down' link does not have a querystring in it
+		if ($options['sourceFolderId']) {
+			$myURL .= "?sourceFolderId=" . $options['sourceFolderId'];
+		}
 		static $entry_template;
 		if (!isset($entry_template)) {
 			$entry_template = CMISService::getEntryTemplate();
@@ -759,8 +778,9 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
   		return $obj;
 	}
 
-	function moveObject() { //yes
-		throw Exception("Not Implemented");
+	function moveObject($objectId,$targetFolderId,$sourceFolderId,$options=array()) { //yes
+	    $options['sourceFolderId']=$sourceFolderId;
+		return $this->postObject($targetFolderId,$this->getTitle($objectId),$this->getObjectType($objectId),array(),null,null,$options);
 	}
 
 	function deleteObject($objectId,$options=array()) { //Yes
