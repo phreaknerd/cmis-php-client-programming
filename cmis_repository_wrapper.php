@@ -438,7 +438,6 @@ class CMISService extends CMISRepositoryWrapper {
 	function getObjectTypeDefinition($objectId) { // Nice to have
 		$myURL = $this->getLink($objectId,"describedby");
 		$ret=$this->doGet($myURL);
-		// print_r($ret);
 		$obj=$this->extractTypeDef($ret->body);
 		$this->cacheTypeInfo($obj);
 		return $obj;
@@ -503,8 +502,6 @@ xmlns:cmisra="http://docs.oasisopen.org/ns/cmis/restatom/200908/">
 		$hash_values=$options;
 		$hash_values['q'] = $q;
 		$post_value = CMISRepositoryWrapper::processTemplate($query_template,$hash_values);
-	    echo "URL: " . $this->workspace->collections['query'];
-		echo "POST_VALUE: $post_value";
 		$objs = $this->doPost($this->workspace->collections['query'],$post_value,MIME_CMIS_QUERY);
 		$this->cacheFeedInfo($objs);
  		return $objs;
@@ -582,8 +579,8 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 			} else {
 				$hash_values['properties']=$propValue;
 			}
-			echo "HASH:\n";
-			print_r(array("template" =>$propTemplate, "Hash" => $hash_values));
+			//echo "HASH:\n";
+			//print_r(array("template" =>$propTemplate, "Hash" => $hash_values));
 			$propertyContent  .= CMISRepositoryWrapper::processTemplate($propTemplate,$hash_values);
 		}
 		return $propertyContent;
@@ -700,7 +697,6 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 			$hash_values['summary'] = $objectName;
 		}
 		$post_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
-		echo "POST_VALUE: $post_value";
 		$ret = $this->doPost($myURL,$post_value,MIME_ATOM_XML_ENTRY);
 		$obj=$this->extractObject($ret->body);
 		$this->cacheEntryInfo($obj);
@@ -757,7 +753,6 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 			$hash_values['summary'] = $objectName;
 		}
 		$put_value = CMISRepositoryWrapper::processTemplate($entry_template,$hash_values);
-		echo "PUT_VALUE: $put_value";
 		$ret= $this->doPut($obj_url,$put_value,MIME_ATOM_XML_ENTRY);
 		$obj=$this->extractObject($ret->body);
 		$this->cacheEntryInfo($obj);
@@ -773,8 +768,6 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 		$varmap["id"]=$objectId;
  		$obj_url = $this->getLink($objectId,"edit");		
 		$ret = $this->doDelete($obj_url);
-		print "DELETING " . $obj_url .  " RET VALUE\n";
-		print_r($ret);
 		return;
 	}
 
