@@ -421,7 +421,7 @@ class CMISService extends CMISRepositoryWrapper {
 			return $this->_link_cache[$objectId][$linkName];
 		}
 		$obj=$this->getObject($objectId);
-		return $obj->link[$linkName];
+		return $obj->links[$linkName];
 	}
 	
 	// Repository Services
@@ -532,7 +532,8 @@ xmlns:cmisra="http://docs.oasisopen.org/ns/cmis/restatom/200908/">
 		$hash_values=$options;
 		$hash_values['q'] = $q;
 		$post_value = CMISRepositoryWrapper::processTemplate($query_template,$hash_values);
-		$objs = $this->doPost($this->workspace->collections['query'],$post_value,MIME_CMIS_QUERY);
+		$ret = $this->doPost($this->workspace->collections['query'],$post_value,MIME_CMIS_QUERY);
+		$objs = $this->extractObjectFeed($ret->body);
 		$this->cacheFeedInfo($objs);
  		return $objs;
 	}
@@ -675,7 +676,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
 
 	function getProperties($objectId,$options=array()) {
 		// May need to set the options array default -- 
-		return getObject($objectId,$options);
+		return $this->getObject($objectId,$options);
 	}
 
 	function getAllowableActions($objectId,$options=array()) {
