@@ -51,7 +51,9 @@ $repo_folder = $_SERVER["argv"][4];
 $repo_new_folder = $_SERVER["argv"][5];
 
 $client = new CMISService($repo_url, $repo_username, $repo_password);
+print "Connected\n";
 $myfolder = $client->getObjectByPath($repo_folder);
+print "Got Folder\n";
 check_response($client);
 if ($myfolder->properties['cmis:baseTypeId'] != "cmis:folder")
 {
