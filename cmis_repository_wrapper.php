@@ -37,6 +37,7 @@ class CMISRepositoryWrapper
     var $authenticated;
     var $workspace;
     var $last_request;
+    var $do_not_urlencode;
     static $namespaces = array (
         "cmis" => "http://docs.oasis-open.org/ns/cmis/core/200908/",
         "cmisra" => "http://docs.oasis-open.org/ns/cmis/restatom/200908/",
@@ -47,6 +48,9 @@ class CMISRepositoryWrapper
 
     function __construct($url, $username = null, $password = null, $options = null)
     {
+        if (is_array($options) && $options["config:do_not_urlencode"]) {
+            $this->do_not_urlencode=true;
+        }
         $this->connect($url, $username, $password, $options);
     }
 
@@ -279,6 +283,11 @@ class CMISRepositoryWrapper
         $retval->uuid = $xmlnode->getElementsByTagName("id")->item(0)->nodeValue;
         $retval->id = $retval->properties["cmis:objectId"];
         return $retval;
+    }
+    
+    function handleSpaces($path)
+    {
+        return $this->do_not_urlencode ? $path : str_replace(" ","%20",str_replace("%","%25",$path));
     }
 
     static function extractTypeDef($xmldata)
@@ -798,7 +807,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
     function getObjectByPath($path, $options = array ())
     {
         $varmap = $options;
-        $varmap["path"] = $path;
+        $varmap["path"] = $this->handleSpaces($path);
         $obj_url = $this->processTemplate($this->workspace->uritemplates['objectbypath'], $varmap);
         $ret = $this->doGet($obj_url);
         $obj = $this->extractObject($ret->body);
