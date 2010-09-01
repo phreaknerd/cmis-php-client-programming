@@ -59,7 +59,6 @@ class CMISRepositoryWrapper
         if (is_array($options) && (count($options) > 0))
         {
             $needs_question = strstr($url, "?") === false;
-            echo "DEBUG: " . print_r($options,true) . "\n";
             return $url . ($needs_question ? "?" : "&") . http_build_query($options);
         } else
         {
@@ -270,7 +269,6 @@ class CMISRepositoryWrapper
         //  -- Properties
         //  -- the Object ID
         // RRM -- NEED TO ADD ALLOWABLEACTIONS
-        echo "DEBUG: OBJELEM: " . $xmlnode->tagName . "\n";
         $retval = new stdClass();
         $retval->links = CMISRepositoryWrapper :: getLinksArray($xmlnode);
         $retval->properties = array ();
@@ -297,10 +295,6 @@ class CMISRepositoryWrapper
 			$children_doc = new DOMDocument();
 			$xnode = $children_doc->importNode($children_feed,true); // Avoid Wrong Document Error
 			$children_doc->appendChild($xnode);
-			echo "DEBUG: C-NODE: " . $children_name->nodeName . "\n";
-			echo "DEBUG: C-FEED: " . $children_feed->nodeName . "\n";
-			echo "DEBUG: C-DOC: " . $children_doc->nodeName . "\n";
-        	echo "DEBUG: C-DOCELEM: " . $children_doc->documentElement->tagName . "\n";
 	        $retval->children = CMISRepositoryWrapper :: extractObjectFeedFromNode($children_doc);
         }
         return $retval;
@@ -384,8 +378,6 @@ class CMISRepositoryWrapper
         $retval = new stdClass();
         $retval->objectList = array ();
         $retval->objectsById = array ();
-        echo "DEBUG: DOCELEM: " . $xmlnode->documentElement->tagName . "\n";
-        echo "DEBUG: NODENAME: " . $xmlnode->documentElement->nodeName . "\n";
         $result = CMISRepositoryWrapper :: doXQueryFromNode($xmlnode, "/atom:feed/atom:entry");
         foreach ($result as $node)
         {
@@ -596,7 +588,6 @@ class CMISService extends CMISRepositoryWrapper
         $hash_values['depth'] = $depth;
         $myURL = $this->getLink($objectId, "down-tree");
         $myURL = CMISRepositoryWrapper :: getOpUrl ($myURL, $hash_values);
-        echo "DEBUG: MYURL: " . $myURL . "\n";
         $ret = $this->doGet($myURL);
         $objs = $this->extractObjectFeed($ret->body);
         $this->cacheFeedInfo($objs);
