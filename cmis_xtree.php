@@ -45,7 +45,7 @@ if ($repo_debug)
     print "\n===========================================\n\n";
 }
 
-$objs = $client->getDescendants($myfolder->id,$depth);
+$objs = $client->getDescendants($myfolder->id,$repo_depth);
 if ($repo_debug)
 {
     print "Folder Children Objects\n:\n===========================================\n";
@@ -61,10 +61,11 @@ foreach ($objs->objectList as $obj)
     }
     elseif ($obj->properties['cmis:baseTypeId'] == "cmis:folder")
     {
-        print "Folder: " . $obj->properties['cmis:name'] . "\n";
+        print "Folder: " . $obj->properties['cmis:path'] . " (" . $obj->properties['cmis:name'] . ")\n";
     } else
     {
         print "Unknown Object Type: " . $obj->properties['cmis:name'] . "\n";
+        print "Unknown Object Type: " . $obj->properties['cmis:path'] . "\n";
     }
 }
 

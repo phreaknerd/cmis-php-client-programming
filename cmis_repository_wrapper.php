@@ -59,6 +59,7 @@ class CMISRepositoryWrapper
         if (is_array($options) && (count($options) > 0))
         {
             $needs_question = strstr($url, "?") === false;
+            echo "DEBUG: " . print_r($options,true) . "\n";
             return $url . ($needs_question ? "?" : "&") . http_build_query($options);
         } else
         {
@@ -269,6 +270,7 @@ class CMISRepositoryWrapper
         //  -- Properties
         //  -- the Object ID
         // RRM -- NEED TO ADD ALLOWABLEACTIONS
+        echo "DEBUG: OBJELEM: " . $xmlnode->tagName . "\n";
         $retval = new stdClass();
         $retval->links = CMISRepositoryWrapper :: getLinksArray($xmlnode);
         $retval->properties = array ();
@@ -284,9 +286,22 @@ class CMISRepositoryWrapper
         $retval->id = $retval->properties["cmis:objectId"];
         //TODO: RRM FIX THIS
         $children_node = $xmlnode->getElementsByTagName("children");
-        if (is_object($children_node) && is_object($children_node->item(0))) {
-			$children_feed = $children_node->item(0);
-	        $retval->children = CMISRepositoryWrapper :: extractObjectFeedFromNode($children_feed);
+        if (is_object($children_node)) {
+        	    $children_feed_c = $children_node->item(0);
+        }
+        if (is_object($children_feed_c)) {
+			$children_feed_l = $children_feed_c->getElementsByTagName("feed");
+        }
+        if (is_object($children_feed_l) && is_object($children_feed_l->item(0))) {
+        	$children_feed = $children_feed_l->item(0);
+			$children_doc = new DOMDocument();
+			$xnode = $children_doc->importNode($children_feed,true); // Avoid Wrong Document Error
+			$children_doc->appendChild($xnode);
+			echo "DEBUG: C-NODE: " . $children_name->nodeName . "\n";
+			echo "DEBUG: C-FEED: " . $children_feed->nodeName . "\n";
+			echo "DEBUG: C-DOC: " . $children_doc->nodeName . "\n";
+        	echo "DEBUG: C-DOCELEM: " . $children_doc->documentElement->tagName . "\n";
+	        $retval->children = CMISRepositoryWrapper :: extractObjectFeedFromNode($children_doc);
         }
         return $retval;
     }
@@ -369,7 +384,9 @@ class CMISRepositoryWrapper
         $retval = new stdClass();
         $retval->objectList = array ();
         $retval->objectsById = array ();
-        $result = CMISRepositoryWrapper :: doXQueryFromNode($xmlnode, "//atom:entry");
+        echo "DEBUG: DOCELEM: " . $xmlnode->documentElement->tagName . "\n";
+        echo "DEBUG: NODENAME: " . $xmlnode->documentElement->nodeName . "\n";
+        $result = CMISRepositoryWrapper :: doXQueryFromNode($xmlnode, "/atom:feed/atom:entry");
         foreach ($result as $node)
         {
             $obj = CMISRepositoryWrapper :: extractObjectFromNode($node);
@@ -378,34 +395,6 @@ class CMISRepositoryWrapper
         }
         return $retval;
     }
-/*
-    static function extractObjectTree($xmldata)
-    {
-        //Assumes only one workspace for now
-        $doc = new DOMDocument();
-        $doc->loadXML($xmldata);
-        return CMISRepositoryWrapper :: extractObjectTreeFromNode($doc);
-    }
-    static function extractObjectTreeFromNode($xmlnode)
-    {
-        // Process a feed and extract the objects
-        //   Does not handle hierarchy
-        //   Provides two arrays 
-        //   -- one sequential array (a list)
-        //   -- one hash table indexed by objectID
-        $retval = new stdClass();
-        $retval->objectList = array ();
-        $retval->objectsById = array ();
-        $result = CMISRepositoryWrapper :: doXQueryFromNode($xmlnode, "//atom:entry");
-        foreach ($result as $node)
-        {
-            $obj = CMISRepositoryWrapper :: extractObjectFromNode($node);
-            $retval->objectsById[$obj->id] = $obj;
-            $retval->objectList[] = & $retval->objectsById[$obj->id];
-        }
-        return $retval;
-    }
-*/
 
     static function extractWorkspace($xmldata)
     {
@@ -607,6 +596,7 @@ class CMISService extends CMISRepositoryWrapper
         $hash_values['depth'] = $depth;
         $myURL = $this->getLink($objectId, "down-tree");
         $myURL = CMISRepositoryWrapper :: getOpUrl ($myURL, $hash_values);
+        echo "DEBUG: MYURL: " . $myURL . "\n";
         $ret = $this->doGet($myURL);
         $objs = $this->extractObjectFeed($ret->body);
         $this->cacheFeedInfo($objs);
