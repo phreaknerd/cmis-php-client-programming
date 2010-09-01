@@ -282,6 +282,12 @@ class CMISRepositoryWrapper
         }
         $retval->uuid = $xmlnode->getElementsByTagName("id")->item(0)->nodeValue;
         $retval->id = $retval->properties["cmis:objectId"];
+        //TODO: RRM FIX THIS
+        $children_node = $xmlnode->getElementsByTagName("children");
+        if (is_object($children_node) && is_object($children_node->item(0))) {
+			$children_feed = $children_node->item(0);
+	        $retval->children = CMISRepositoryWrapper :: extractObjectFeedFromNode($children_feed);
+        }
         return $retval;
     }
     
@@ -372,6 +378,34 @@ class CMISRepositoryWrapper
         }
         return $retval;
     }
+/*
+    static function extractObjectTree($xmldata)
+    {
+        //Assumes only one workspace for now
+        $doc = new DOMDocument();
+        $doc->loadXML($xmldata);
+        return CMISRepositoryWrapper :: extractObjectTreeFromNode($doc);
+    }
+    static function extractObjectTreeFromNode($xmlnode)
+    {
+        // Process a feed and extract the objects
+        //   Does not handle hierarchy
+        //   Provides two arrays 
+        //   -- one sequential array (a list)
+        //   -- one hash table indexed by objectID
+        $retval = new stdClass();
+        $retval->objectList = array ();
+        $retval->objectsById = array ();
+        $result = CMISRepositoryWrapper :: doXQueryFromNode($xmlnode, "//atom:entry");
+        foreach ($result as $node)
+        {
+            $obj = CMISRepositoryWrapper :: extractObjectFromNode($node);
+            $retval->objectsById[$obj->id] = $obj;
+            $retval->objectList[] = & $retval->objectsById[$obj->id];
+        }
+        return $retval;
+    }
+*/
 
     static function extractWorkspace($xmldata)
     {
@@ -567,9 +601,16 @@ class CMISService extends CMISRepositoryWrapper
         throw Exception("Not Implemented");
     }
 
-    function getDescendants()
+    function getDescendants($objectId, $depth, $options = array ())
     { // Nice to have
-        throw Exception("Not Implemented");
+        $hash_values = $options;
+        $hash_values['depth'] = $depth;
+        $myURL = $this->getLink($objectId, "down-tree");
+        $myURL = CMISRepositoryWrapper :: getOpUrl ($myURL, $hash_values);
+        $ret = $this->doGet($myURL);
+        $objs = $this->extractObjectFeed($ret->body);
+        $this->cacheFeedInfo($objs);
+        return $objs;
     }
 
     function getChildren($objectId, $options = array ())
