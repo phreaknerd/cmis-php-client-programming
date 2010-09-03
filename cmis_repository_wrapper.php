@@ -224,8 +224,6 @@ class CMISRepositoryWrapper
     {
         // Perform an XQUERY on a NODE
         // Register the 4 CMIS namespaces
-        echo "DEBUG: CALLING DOM XPATH\n";
-        //debug_print_backtrace();
         //THis may be a hopeless HACK!
         //TODO: Review
         if (!($xmlnode instanceof DOMDocument)) {
@@ -419,7 +417,6 @@ class CMISRepositoryWrapper
         //Assumes only one workspace for now
         $doc = new DOMDocument();
         $doc->loadXML($xmldata);
-        echo "DEBUG: LOADED TYPE FEED\n";
         return CMISRepositoryWrapper :: extractTypeFeedFromNode($doc);
     }
     static function extractTypeFeedFromNode($xmlnode)
@@ -595,7 +592,7 @@ class CMISService extends CMISRepositoryWrapper
 
     function getTypeLink($typeId, $linkName)
     {
-        if ($this->_type_cache[$typeId])
+        if ($this->_type_cache[$typeId]->links)
         {
             return $this->_type_cache[$typeId]->links[$linkName];
         }
@@ -636,9 +633,7 @@ class CMISService extends CMISRepositoryWrapper
         } else {
         	$myURL = $this->processTemplate($this->workspace->collections['http://docs.oasis-open.org/ns/cmis/link/200908/typedescendants'], $varmap);       	
         }
-        echo "DEBUG: MYURL: " . $myURL . "\n";
         $ret = $this->doGet($myURL);
-        echo "DEBUG: BODY: " . $ret->body;
         $typs = $this->extractTypeFeed($ret->body);
         $this->cacheTypeFeedInfo($typs);
         return $typs;
