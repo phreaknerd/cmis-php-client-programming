@@ -224,7 +224,18 @@ class CMISRepositoryWrapper
     {
         // Perform an XQUERY on a NODE
         // Register the 4 CMIS namespaces
-        $xpath = new DomXPath($xmlnode);
+        echo "DEBUG: CALLING DOM XPATH\n";
+        //debug_print_backtrace();
+        //THis may be a hopeless HACK!
+        //TODO: Review
+        if (!($xmlnode instanceof DOMDocument)) {
+            $xdoc=new DOMDocument();
+            $xnode = $xdoc->importNode($xmlnode);
+            $xdoc->appendChild($xnode);
+            $xpath = new DomXPath($xdoc);
+        } else {
+        	$xpath = new DomXPath($xmlnode);
+        }
         foreach (CMISRepositoryWrapper :: $namespaces as $nspre => $nsuri)
         {
             $xpath->registerNamespace($nspre, $nsuri);
@@ -343,6 +354,21 @@ class CMISRepositoryWrapper
             }
             $retval->id = $retval->attributes["cmis:id"];
         }
+        //TODO: RRM FIX THIS
+        $children_node = $xmlnode->getElementsByTagName("children");
+        if (is_object($children_node)) {
+        	    $children_feed_c = $children_node->item(0);
+        }
+        if (is_object($children_feed_c)) {
+			$children_feed_l = $children_feed_c->getElementsByTagName("feed");
+        }
+        if (is_object($children_feed_l) && is_object($children_feed_l->item(0))) {
+        	$children_feed = $children_feed_l->item(0);
+			$children_doc = new DOMDocument();
+			$xnode = $children_doc->importNode($children_feed,true); // Avoid Wrong Document Error
+			$children_doc->appendChild($xnode);
+	        $retval->children = CMISRepositoryWrapper :: extractTypeFeedFromNode($children_doc);
+        }
 
         /*
          * 
@@ -382,6 +408,34 @@ class CMISRepositoryWrapper
         foreach ($result as $node)
         {
             $obj = CMISRepositoryWrapper :: extractObjectFromNode($node);
+            $retval->objectsById[$obj->id] = $obj;
+            $retval->objectList[] = & $retval->objectsById[$obj->id];
+        }
+        return $retval;
+    }
+
+    static function extractTypeFeed($xmldata)
+    {
+        //Assumes only one workspace for now
+        $doc = new DOMDocument();
+        $doc->loadXML($xmldata);
+        echo "DEBUG: LOADED TYPE FEED\n";
+        return CMISRepositoryWrapper :: extractTypeFeedFromNode($doc);
+    }
+    static function extractTypeFeedFromNode($xmlnode)
+    {
+        // Process a feed and extract the objects
+        //   Does not handle hierarchy
+        //   Provides two arrays 
+        //   -- one sequential array (a list)
+        //   -- one hash table indexed by objectID
+        $retval = new stdClass();
+        $retval->objectList = array ();
+        $retval->objectsById = array ();
+        $result = CMISRepositoryWrapper :: doXQueryFromNode($xmlnode, "/atom:feed/atom:entry");
+        foreach ($result as $node)
+        {
+            $obj = CMISRepositoryWrapper :: extractTypeDefFromNode($node);
             $retval->objectsById[$obj->id] = $obj;
             $retval->objectList[] = & $retval->objectsById[$obj->id];
         }
@@ -466,6 +520,9 @@ define("MIME_CMIS_QUERY", 'application/cmisquery+xml');
 class CMISService extends CMISRepositoryWrapper
 {
     var $_link_cache;
+    var $_title_cache;
+    var $_objTypeId_cache;
+    var $_type_cache;
     function __construct($url, $username, $password, $options = null)
     {
         parent :: __construct($url, $username, $password, $options);
@@ -477,7 +534,7 @@ class CMISService extends CMISRepositoryWrapper
 
     // Utility Methods -- Added Titles
     // Should refactor to allow for single object	
-    function cacheEntryInfo($obj)
+    function cacheObjectInfo($obj)
     {
         $this->_link_cache[$obj->id] = $obj->links;
         $this->_title_cache[$obj->id] = $obj->properties["cmis:name"]; // Broad Assumption Here?
@@ -488,7 +545,15 @@ class CMISService extends CMISRepositoryWrapper
     {
         foreach ($objs->objectList as $obj)
         {
-            $this->cacheEntryInfo($obj);
+            $this->cacheObjectInfo($obj);
+        }
+    }
+
+    function cacheTypeFeedInfo($typs)
+    {
+        foreach ($typs->objectList as $typ)
+        {
+            $this->cacheTypeInfo($typ);
         }
     }
 
@@ -526,6 +591,17 @@ class CMISService extends CMISRepositoryWrapper
         $obj = $this->getObject($objectId);
         return $obj->properties["cmis:name"];
     }
+
+    function getTypeLink($typeId, $linkName)
+    {
+        if ($this->_type_cache[$typeId])
+        {
+            return $this->_type_cache[$typeId]->links[$linkName];
+        }
+        $typ = $this->getTypeDefinition($typeId);
+        return $typ->links[$linkName];
+    }
+
     function getLink($objectId, $linkName)
     {
         if ($this->_link_cache[$objectId][$linkName])
@@ -547,14 +623,40 @@ class CMISService extends CMISRepositoryWrapper
         return $this->workspace;
     }
 
-    function getTypeChildren()
+    function getTypeDescendants($typeId=null, $depth, $options = array ())
     {
-        throw Exception("Not Implemented");
+    	// TODO: Refactor Type Entries Caching
+        $varmap = $options;
+        if ($typeId) {
+	        $hash_values = $options;
+	        $hash_values['depth'] = $depth;
+	        $myURL = $this->getTypeLink($typeId, "down-tree");
+	        $myURL = CMISRepositoryWrapper :: getOpUrl ($myURL, $hash_values);
+        } else {
+        	$myURL = $this->processTemplate($this->workspace->collections['http://docs.oasis-open.org/ns/cmis/link/200908/typedescendants'], $varmap);       	
+        }
+        echo "DEBUG: MYURL: " . $myURL . "\n";
+        $ret = $this->doGet($myURL);
+        echo "DEBUG: BODY: " . $ret->body;
+        $typs = $this->extractTypeFeed($ret->body);
+        $this->cacheTypeFeedInfo($typs);
+        return $typs;
     }
 
-    function getTypeDescendants()
+    function getTypeChildren($typeId=null, $options = array ())
     {
-        throw Exception("Not Implemented");
+    	// TODO: Refactor Type Entries Caching
+        $varmap = $options;
+        if ($typeId) {
+	        $myURL = $this->getTypeLink($typeId, "down");
+	        //TODO: Need GenURLQueryString Utility
+        } else {
+            //TODO: Need right URL
+        	$myURL = $this->processTemplate($this->workspace->collections['types'], $varmap);       	
+        }
+        $ret = $this->doGet($myURL);
+        $typs = $this->extractTypeFeed($ret->body);
+        $this->cacheTypeFeedInfo($typs);
     }
 
     function getTypeDefinition($typeId, $options = array ())
@@ -610,7 +712,7 @@ class CMISService extends CMISRepositoryWrapper
         //TODO: Need GenURLQueryString Utility
         $ret = $this->doGet($myURL);
         $obj = $this->extractObjectEntry($ret->body);
-        $this->cacheEntryInfo($obj);
+        $this->cacheObjectInfo($obj);
         return $obj;
     }
 
@@ -822,7 +924,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
         $obj_url = $this->processTemplate($this->workspace->uritemplates['objectbyid'], $varmap);
         $ret = $this->doGet($obj_url);
         $obj = $this->extractObject($ret->body);
-        $this->cacheEntryInfo($obj);
+        $this->cacheObjectInfo($obj);
         return $obj;
     }
 
@@ -833,7 +935,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
         $obj_url = $this->processTemplate($this->workspace->uritemplates['objectbypath'], $varmap);
         $ret = $this->doGet($obj_url);
         $obj = $this->extractObject($ret->body);
-        $this->cacheEntryInfo($obj);
+        $this->cacheObjectInfo($obj);
         return $obj;
     }
 
@@ -914,7 +1016,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
         // print "DO_POST\n";
         // print_r($ret);
         $obj = $this->extractObject($ret->body);
-        $this->cacheEntryInfo($obj);
+        $this->cacheObjectInfo($obj);
         return $obj;
     }
 
@@ -984,7 +1086,7 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
         $put_value = CMISRepositoryWrapper :: processTemplate($entry_template, $hash_values);
         $ret = $this->doPut($obj_url, $put_value, MIME_ATOM_XML_ENTRY);
         $obj = $this->extractObject($ret->body);
-        $this->cacheEntryInfo($obj);
+        $this->cacheObjectInfo($obj);
         return $obj;
     }
 

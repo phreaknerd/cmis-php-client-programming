@@ -21,7 +21,7 @@ require_once ('cmis_repository_wrapper.php');
 $repo_url = $_SERVER["argv"][1];
 $repo_username = $_SERVER["argv"][2];
 $repo_password = $_SERVER["argv"][3];
-$repo_folder = $_SERVER["argv"][4];
+$repo_type = $_SERVER["argv"][4];
 $repo_depth = $_SERVER["argv"][5];
 $repo_debug = $_SERVER["argv"][6];
 
@@ -36,24 +36,24 @@ if ($repo_debug)
     print_r($client->workspace);
     print "\n===========================================\n\n";
 }
-
-$myfolder = $client->getObjectByPath($repo_folder);
+echo "Getting Definiton for: " . $repo_type;
+$mytype = $client->getTypeDefinition($repo_type);
 if ($repo_debug)
 {
-    print "Folder Object:\n===========================================\n";
-    print_r($myfolder);
+    print "Type:\n===========================================\n";
+    print_r($mytype);
     print "\n===========================================\n\n";
 }
 
-$objs = $client->getDescendants($myfolder->id,$repo_depth);
+$objs = $client->getTypeDescendants($repo_type,$repo_depth);
 if ($repo_debug)
 {
-    print "Folder Children Objects\n:\n===========================================\n";
+    print "Type Descendants\n:\n===========================================\n";
     print_r($objs);
     print "\n===========================================\n\n";
 }
-//Does not print full tree -- operation verified in data structure
-foreach ($objs->objectList as $obj)
+//Oi I need to redo for type data structures
+/*foreach ($objs->objectList as $obj)
 {
     if ($obj->properties['cmis:baseTypeId'] == "cmis:document")
     {
@@ -68,7 +68,7 @@ foreach ($objs->objectList as $obj)
         print "Unknown Object Type: " . $obj->properties['cmis:path'] . "\n";
     }
 }
-
+*/
 if ($repo_debug > 2)
 {
     print "Final State of CLient:\n===========================================\n";
