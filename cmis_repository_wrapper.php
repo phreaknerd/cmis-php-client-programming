@@ -1125,12 +1125,12 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
     //Versioning Services
     function getPropertiesOfLatestVersion($objectId, $options = array ())
     {
-        throw Exception("Not Implemented");
+        return $this->getObjectOfLatestVersion($objectId, $options);
     }
 
     function getObjectOfLatestVersion($objectId, $options = array ())
     {
-        throw Exception("Not Implemented");
+        return $this->getObject($objectId, $options); // Won't be able to handle major/minor distinction
     }
 
     function getAllVersions()
