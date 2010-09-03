@@ -676,9 +676,16 @@ class CMISService extends CMISRepositoryWrapper
         return $obj;
     }
     //Navigation Services
-    function getFolderTree()
-    { // Would Be Useful
-        throw Exception("Not Implemented");
+    function getFolderTree($objectId, $depth, $options = array ())
+    {
+        $hash_values = $options;
+        $hash_values['depth'] = $depth;
+        $myURL = $this->getLink($objectId, "http://docs.oasis-open.org/ns/cmis/link/200908/foldertree");
+        $myURL = CMISRepositoryWrapper :: getOpUrl ($myURL, $hash_values);
+        $ret = $this->doGet($myURL);
+        $objs = $this->extractObjectFeed($ret->body);
+        $this->cacheFeedInfo($objs);
+        return $objs;
     }
 
     function getDescendants($objectId, $depth, $options = array ())
