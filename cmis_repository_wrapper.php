@@ -230,7 +230,7 @@ class CMISRepositoryWrapper
         //TODO: Review
         if (!($xmlnode instanceof DOMDocument)) {
             $xdoc=new DOMDocument();
-            $xnode = $xdoc->importNode($xmlnode);
+            $xnode = $xdoc->importNode($xmlnode,true);
             $xdoc->appendChild($xnode);
             $xpath = new DomXPath($xdoc);
         } else {
@@ -559,12 +559,13 @@ class CMISService extends CMISRepositoryWrapper
 
     function cacheTypeInfo($tDef)
     {
+        // TODO: Fix Type Caching with missing properties
         $this->_type_cache[$tDef->id] = $tDef;
     }
 
     function getPropertyType($typeId, $propertyId)
     {
-        if ($this->_type_cache[$typeId])
+        if ($this->_type_cache[$typeId]->properties)
         {
             return $this->_type_cache[$typeId]->properties[$propertyId]["cmis:propertyType"];
         }
@@ -657,6 +658,7 @@ class CMISService extends CMISRepositoryWrapper
         $ret = $this->doGet($myURL);
         $typs = $this->extractTypeFeed($ret->body);
         $this->cacheTypeFeedInfo($typs);
+        return $typs;
     }
 
     function getTypeDefinition($typeId, $options = array ())
