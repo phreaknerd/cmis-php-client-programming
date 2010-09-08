@@ -1130,14 +1130,20 @@ xmlns:cmisra="http://docs.oasis-open.org/ns/cmis/restatom/200908/">
     }
 
     //Versioning Services
-    function getPropertiesOfLatestVersion($objectId, $options = array ())
+    function getPropertiesOfLatestVersion($objectId, $major =false, $options = array ())
     {
-        return $this->getObjectOfLatestVersion($objectId, $options);
+        return $this->getObjectOfLatestVersion($objectId, $major, $options);
     }
 
-    function getObjectOfLatestVersion($objectId, $options = array ())
+    function getObjectOfLatestVersion($objectId, $major = false, $options = array ())
     {
         return $this->getObject($objectId, $options); // Won't be able to handle major/minor distinction
+        // Need to add this -- "current-version"
+        /*
+         * Headers: CMIS-filter, CMIS-returnVersion (enumReturnVersion) 
+         * HTTP Arguments: filter, returnVersion 
+         * Enum returnVersion: This, Latest, Major
+         */
     }
 
     function getAllVersions()
